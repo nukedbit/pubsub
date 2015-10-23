@@ -99,5 +99,20 @@ namespace NukedBit.PubSub.Tests
             sub1Mock.Verify(m=> m.Consume(message),Times.Once);
             sub2Mock.Verify(m=> m.Consume(message),Times.Once);
         }
+
+        [Fact]
+        public async Task UnSunscribe()
+        {
+            var hub = new Hub();
+            var message = new Message("descr");
+            var sub1Mock = new Mock<IHandler<Message>>();
+            sub1Mock.Setup(m => m.Consume(message)).Returns(Task.FromResult(0)).Verifiable();
+
+            hub.Subscribe(sub1Mock.Object);
+            hub.UnSubscribe(sub1Mock.Object);
+            await hub.Publish(message);
+
+            sub1Mock.Verify(m => m.Consume(message), Times.Never);
+        }
     }
 }

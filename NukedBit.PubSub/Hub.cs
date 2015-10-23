@@ -50,5 +50,14 @@ namespace NukedBit.PubSub
                  return l;
              });
         }
+
+        public void UnSubscribe<T>(IHandler<T> handler) where T : class
+        {
+            List<object> handlers;
+            _subscrivers.TryGetValue(typeof (T), out handlers);
+            var old = handlers;
+            handlers.Remove(handler);
+            _subscrivers.TryUpdate(typeof (T), handlers, old);
+        }
     }
 }
