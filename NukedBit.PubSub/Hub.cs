@@ -16,6 +16,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -24,24 +25,30 @@ namespace NukedBit.PubSub
 {
     public sealed class Hub
     {
-        private readonly ConcurrentDictionary<Type, object> _subscrivers = new ConcurrentDictionary<Type, object>();
+        private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
         public async Task Publish<T>(T message) where T : class
         {
-            object handler;
+            List<object> handlers;
             var messageType = typeof(T);
-            if (!_subscrivers.TryGetValue(messageType, out handler))
+            if (!_subscrivers.TryGetValue(messageType, out handlers))
                 return;
-
-            var h = handler
-                .GetType()
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.InvokeMethod)
-                .Single(p => p.Name =="Consume" && p.GetParameters().Single().ParameterType == messageType);
-            await (Task)h.Invoke(handler, BindingFlags.InvokeMethod | BindingFlags.Public, null, new object[] {message}, null);
+            foreach (var handler in handlers)
+            {
+                var h = handler
+                 .GetType()
+                 .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.InvokeMethod)
+                 .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
+                await (Task)h.Invoke(handler, BindingFlags.InvokeMethod | BindingFlags.Public, null, new object[] { message }, null);
+            }
         }
 
         public void Subscribe<T>(IHandler<T> handler) where T : class
         {
-            _subscrivers.TryAdd(typeof(T), handler);
+            _subscrivers.AddOrUpdate(typeof(T), new List<object> { handler }, (t, l) =>
+             {
+                 l.Add(handler);
+                 return l;
+             });
         }
     }
 }

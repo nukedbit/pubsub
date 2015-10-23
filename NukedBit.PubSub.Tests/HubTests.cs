@@ -15,7 +15,9 @@
 ******************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Moq;
 using Xunit;
 
 namespace NukedBit.PubSub.Tests
@@ -55,9 +57,47 @@ namespace NukedBit.PubSub.Tests
         {
             var hub = new Hub();
             var message = new Message("descr");
-            var subscriber = new MockSubscriber {ConsumedAction = m => Assert.Equal("descr", m.Description)};
+            var subscriber = new MockSubscriber { ConsumedAction = m => Assert.Equal("descr", m.Description) };
             hub.Subscribe(subscriber);
             await hub.Publish(message);
+        }
+
+        [Fact]
+        public async Task ReceiveTwoMessage()
+        {
+            var hub = new Hub();
+            var message = new Message("descr");
+            var message2 = new Message("descr2");
+            var expectedDescrs = new List<string> { "descr", "descr2" };
+            var subscriber = new MockSubscriber
+            {
+                ConsumedAction = m =>
+                {
+                    expectedDescrs.Remove(m.Description);
+                }
+            };
+            hub.Subscribe(subscriber);
+            await hub.Publish(message);
+            await hub.Publish(message2);
+            Assert.Equal(0, expectedDescrs.Count);
+        }
+
+        [Fact]
+        public async Task NotifyMultipleHandlers()
+        {
+            var hub = new Hub();
+            var message = new Message("descr");
+            var sub1Mock = new Mock<IHandler<Message>>();
+            var sub2Mock = new Mock<IHandler<Message>>();
+            sub1Mock.Setup(m => m.Consume(message)).Returns(Task.FromResult(0)).Verifiable();
+            sub2Mock.Setup(m => m.Consume(message)).Returns(Task.FromResult(0)).Verifiable();
+
+            hub.Subscribe(sub1Mock.Object);
+            hub.Subscribe(sub2Mock.Object);
+            await hub.Publish(message);
+
+            sub1Mock.Verify(m=> m.Consume(message),Times.Once);
+            sub2Mock.Verify(m=> m.Consume(message),Times.Once);
         }
     }
 }
