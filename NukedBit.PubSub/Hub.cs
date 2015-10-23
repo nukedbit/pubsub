@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 
 namespace NukedBit.PubSub
 {
-    public sealed class Hub
+    public sealed class Hub : IHub
     {
         private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
         public async Task Publish<T>(T message) where T : class
@@ -42,21 +42,21 @@ namespace NukedBit.PubSub
             }
         }
 
-        public void Subscribe<T>(IHandler<T> handler) where T : class
+        public void Subscribe<T>(IHandleMessage<T> handleMessage) where T : class
         {
-            _subscrivers.AddOrUpdate(typeof(T), new List<object> { handler }, (t, l) =>
+            _subscrivers.AddOrUpdate(typeof(T), new List<object> { handleMessage }, (t, l) =>
              {
-                 l.Add(handler);
+                 l.Add(handleMessage);
                  return l;
              });
         }
 
-        public void UnSubscribe<T>(IHandler<T> handler) where T : class
+        public void UnSubscribe<T>(IHandleMessage<T> handleMessage) where T : class
         {
             List<object> handlers;
             _subscrivers.TryGetValue(typeof (T), out handlers);
             var old = handlers;
-            handlers.Remove(handler);
+            handlers.Remove(handleMessage);
             _subscrivers.TryUpdate(typeof (T), handlers, old);
         }
     }

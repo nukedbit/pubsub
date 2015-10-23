@@ -34,7 +34,7 @@ namespace NukedBit.PubSub.Tests
             }
         }
 
-        private class MockSubscriber : IHandler<Message>
+        private class MockSubscriber : IHandleMessage<Message>
         {
             public Action<Message> ConsumedAction;
 
@@ -87,8 +87,8 @@ namespace NukedBit.PubSub.Tests
         {
             var hub = new Hub();
             var message = new Message("descr");
-            var sub1Mock = new Mock<IHandler<Message>>();
-            var sub2Mock = new Mock<IHandler<Message>>();
+            var sub1Mock = new Mock<IHandleMessage<Message>>();
+            var sub2Mock = new Mock<IHandleMessage<Message>>();
             sub1Mock.Setup(m => m.Consume(message)).Returns(Task.FromResult(0)).Verifiable();
             sub2Mock.Setup(m => m.Consume(message)).Returns(Task.FromResult(0)).Verifiable();
 
@@ -105,7 +105,7 @@ namespace NukedBit.PubSub.Tests
         {
             var hub = new Hub();
             var message = new Message("descr");
-            var sub1Mock = new Mock<IHandler<Message>>();
+            var sub1Mock = new Mock<IHandleMessage<Message>>();
             sub1Mock.Setup(m => m.Consume(message)).Returns(Task.FromResult(0)).Verifiable();
 
             hub.Subscribe(sub1Mock.Object);

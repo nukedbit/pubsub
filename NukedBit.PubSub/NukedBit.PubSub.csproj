@@ -41,7 +41,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Hub.cs" />
-    <Compile Include="IHandler.cs" />
+    <Compile Include="IHandleMessage.cs" />
+    <Compile Include="IHub.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

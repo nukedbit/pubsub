@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace NukedBit.PubSub
 {
-    public interface IHandler<in T> where T : class
+    public interface IHandleMessage<in T> where T : class
     {
         Task Consume(T message);
     }
