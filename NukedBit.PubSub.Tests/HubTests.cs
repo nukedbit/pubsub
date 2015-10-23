@@ -51,7 +51,7 @@ namespace NukedBit.PubSub.Tests
         }
 
         [Fact]
-        public async Task ReceiveMessage()
+        public async Task ReceiveSingleMessage()
         {
             var hub = new Hub();
             var message = new Message("descr");
