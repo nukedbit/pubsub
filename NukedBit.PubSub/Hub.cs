@@ -28,18 +28,21 @@ namespace NukedBit.PubSub
         private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
         public async Task Publish<T>(T message) where T : class
         {
-            List<object> handlers;
-            var messageType = typeof(T);
-            if (!_subscrivers.TryGetValue(messageType, out handlers))
-                return;
-            foreach (var handler in handlers)
+            await Task.Run(async () =>
             {
-                var h = handler
-                 .GetType()
-                 .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.InvokeMethod)
-                 .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
-                await (Task)h.Invoke(handler, BindingFlags.InvokeMethod | BindingFlags.Public, null, new object[] { message }, null);
-            }
+                List<object> handlers;
+                var messageType = typeof (T);
+                if (!_subscrivers.TryGetValue(messageType, out handlers))
+                    return;
+                foreach (var handler in handlers)
+                {
+                    var h = handler
+                        .GetType()
+                        .GetRuntimeMethods()
+                        .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
+                    await (Task) h.Invoke(handler, new object[] {message});
+                }
+            });
         }
 
         public void Subscribe<T>(IHandleMessage<T> handleMessage) where T : class

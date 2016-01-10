@@ -68,7 +68,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NukedBit.PubSub\NukedBit.PubSub.csproj">
-      <Project>{2a69c3f8-efb7-4414-b527-e5bff543be66}</Project>
+      <Project>{e98a0916-0442-41f3-9f3d-4785437b6bab}</Project>
       <Name>NukedBit.PubSub</Name>
     </ProjectReference>
   </ItemGroup>
