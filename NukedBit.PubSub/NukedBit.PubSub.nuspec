@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+	<metadata>
+		<id>NukedBit.PubSub</id>
+		<version>$version$</version>
+		<title>NukedBit PubSub</title>
+		<authors>nukedbit</authors>
+		<owners>nukedbit</owners>
+		<licenseUrl>http://opensource.org/licenses/Apache-2.0</licenseUrl>
+		<projectUrl>https://github.com/nukedbit/pubsub</projectUrl>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>
+			A simple framework publish subscribe framework
+		</description>
+		<tags>mvvm xamarin android ios forms monodroid monotouch xamarin.android xamarin.ios xamarin.forms windows8 winrt net net45 netcore windowsphone windowsstore uwp</tags>
+		<iconUrl>http://i.imgur.com/UHTvohwl.jpg</iconUrl> 
+	</metadata>
+	<files>		
+		<!-- pcl -->
+		<file src="bin\Release\NukedBit.PubSub.*" target="lib\portable45-net45+win8+wp8" />		
+	</files>
+</package>
+
+
+
+
+

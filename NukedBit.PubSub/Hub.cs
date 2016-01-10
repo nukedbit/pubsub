@@ -31,7 +31,7 @@ namespace NukedBit.PubSub
             await Task.Run(async () =>
             {
                 List<object> handlers;
-                var messageType = typeof (T);
+                var messageType = typeof(T);
                 if (!_subscrivers.TryGetValue(messageType, out handlers))
                     return;
                 foreach (var handler in handlers)
@@ -40,7 +40,7 @@ namespace NukedBit.PubSub
                         .GetType()
                         .GetRuntimeMethods()
                         .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
-                    await (Task) h.Invoke(handler, new object[] {message});
+                    await (Task)h.Invoke(handler, new object[] { message });
                 }
             });
         }
@@ -57,10 +57,12 @@ namespace NukedBit.PubSub
         public void UnSubscribe<T>(IHandleMessage<T> handleMessage) where T : class
         {
             List<object> handlers;
-            _subscrivers.TryGetValue(typeof (T), out handlers);
-            var old = handlers;
-            handlers.Remove(handleMessage);
-            _subscrivers.TryUpdate(typeof (T), handlers, old);
+            if (_subscrivers.TryGetValue(typeof(T), out handlers))
+            {
+                var old = handlers;
+                handlers.Remove(handleMessage);
+                _subscrivers.TryUpdate(typeof(T), handlers, old);
+            }
         }
     }
 }
