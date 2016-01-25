@@ -21,42 +21,50 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Helios.Exceptions;
 using Helios.Net;
 using Helios.Net.Bootstrap;
+using Helios.Reactor.Bootstrap;
 using Helios.Topology;
 using Newtonsoft.Json;
 
 namespace NukedBit.PubSub.Udp
 {
-    public class UdpHub : IHub
+    public class UdpHub : IHub, IDisposable
     {
         private readonly IConnection _connection;
         private readonly INode _remoteEnpoint;
 
         private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
         private readonly ConcurrentQueue<byte[]> _receivedEnvelops = new ConcurrentQueue<byte[]>();
+        private bool _disposed;
+        private Task _listener;
+        private CancellationTokenSource cancellationTokenSource;
 
         public UdpHub(INode remoteEnpoint, INode localEndPoint)
         {
+            cancellationTokenSource = new CancellationTokenSource();
+            
             _connection = new ClientBootstrap()
                 .SetTransport(TransportType.Udp)
                 .RemoteAddress(localEndPoint)
-                .OnConnect(ConnectionEstablishedCallback)
-                .OnReceive(ReceivedDataCallback)
-                .OnDisconnect(ConnectionTerminatedCallback)
-                .Build().NewConnection(localEndPoint, remoteEnpoint);
-
+            //    .WorkerThreads(2)
+                .OnConnect(OnConnectionEstablished)
+                .OnReceive(OnReceivedData)
+                .OnDisconnect(OnConnectionTerminated)
+                .Build().NewConnection(localEndPoint, remoteEnpoint);            
             _connection.Open();
             _remoteEnpoint = remoteEnpoint;
             StartListener();
         }
+         
 
         private void StartListener()
         {
-            new Task(ListenIncomingMessages, TaskCreationOptions.LongRunning)
-            .Start();
+            _listener = new Task(ListenIncomingMessages, cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
+            _listener.Start();
         }
 
         private async void ListenIncomingMessages()
@@ -66,9 +74,13 @@ namespace NukedBit.PubSub.Udp
 
         private async Task DoDispatch()
         {
-            while (true)
+            while (!cancellationTokenSource.IsCancellationRequested)
             {
-                if (_receivedEnvelops.IsEmpty) await Task.Delay(1);
+                if (_receivedEnvelops.IsEmpty)
+                {
+                    await Task.Delay(1);
+                    continue;
+                }
                 byte[] bts;
                 if (_receivedEnvelops.TryDequeue(out bts))
                 {
@@ -83,22 +95,24 @@ namespace NukedBit.PubSub.Udp
 
         private async Task NotifySubscribers(object content)
         {
-
-            List<object> handlers;
-            var messageType = content.GetType();
-            if (!_subscrivers.TryGetValue(messageType, out handlers))
-                return;
-            foreach (var handler in handlers)
+            await Task.Run(async () =>
             {
-                var h = handler
-                    .GetType()
-                    .GetRuntimeMethods()
-                    .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
-                await (Task)h.Invoke(handler, new[] { content });
-            }
+                List<object> handlers;
+                var messageType = content.GetType();
+                if (!_subscrivers.TryGetValue(messageType, out handlers))
+                    return;
+                foreach (var handler in handlers)
+                {
+                    var h = handler
+                        .GetType()
+                        .GetRuntimeMethods()
+                        .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
+                    await (Task) h.Invoke(handler, new[] {content});
+                }
+            }, cancellationTokenSource.Token);
         }
 
-        private async void ConnectionTerminatedCallback(HeliosConnectionException reason, IConnection closedchannel)
+        private async void OnConnectionTerminated(HeliosConnectionException reason, IConnection closedchannel)
         {
             await SendConnectionTerminated(reason, closedchannel);
         }
@@ -120,7 +134,7 @@ namespace NukedBit.PubSub.Udp
             }
         }
 
-        private async void ConnectionEstablishedCallback(INode remoteaddress, IConnection responsechannel)
+        private async void OnConnectionEstablished(INode remoteaddress, IConnection responsechannel)
         {
             await SendConnectionEstablished(remoteaddress);
         }
@@ -140,7 +154,7 @@ namespace NukedBit.PubSub.Udp
         }
 
 
-        private void ReceivedDataCallback(NetworkData incomingdata, IConnection responsechannel)
+        private void OnReceivedData(NetworkData incomingdata, IConnection responsechannel)
         {
             if (incomingdata.Buffer != null)
                 _receivedEnvelops.Enqueue(incomingdata.Buffer);
@@ -182,6 +196,17 @@ namespace NukedBit.PubSub.Udp
                 var old = handlers;
                 handlers.Remove(handleMessage);
                 _subscrivers.TryUpdate(typeof(T), handlers, old);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                cancellationTokenSource?.Cancel();
+                _connection.Close();
+                _connection.Dispose();
+                _disposed = true;
             }
         }
     }
