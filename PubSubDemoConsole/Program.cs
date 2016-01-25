@@ -46,7 +46,7 @@ namespace PubSubDemoConsole
             _consumer = new Consumer();
         }
 
-        public static int MessageCount = 10000;
+        public static int MessageCount = 1000000;
 
         public static void Main(string[] args)
         {

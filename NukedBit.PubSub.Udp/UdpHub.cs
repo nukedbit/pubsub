@@ -34,7 +34,7 @@ namespace NukedBit.PubSub.Udp
 
     public class UdpMessageEnvelop
     {
-        public IDictionary<string,string> Headers { get; } = new Dictionary<string, string>();
+        public IDictionary<string, string> Headers { get; } = new Dictionary<string, string>();
 
         public string Content { get; set; }
     }
@@ -45,6 +45,10 @@ namespace NukedBit.PubSub.Udp
         private readonly INode _remoteEnpoint;
 
         private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
+
+
+        private readonly ConcurrentQueue<byte[]> ReceivedEnvelops = new ConcurrentQueue<byte[]>();
+
 
         public UdpHub(INode remoteEnpoint, INode localEndPoint)
         {
@@ -58,45 +62,70 @@ namespace NukedBit.PubSub.Udp
 
             _connection.Open();
             _remoteEnpoint = remoteEnpoint;
+            StartListener();
+        }
 
+        private void StartListener()
+        {
+            new Task(ListenIncomingMessages, TaskCreationOptions.LongRunning)
+            .Start();
+        }
+
+        private async void ListenIncomingMessages()
+        {
+            await DoDispatch();
+        }
+
+        private async Task DoDispatch()
+        {
+            while (true)
+            {
+                if (ReceivedEnvelops.IsEmpty) await Task.Delay(1);
+                byte[] bts;
+                if (ReceivedEnvelops.TryDequeue(out bts))
+                {
+                    var json = Encoding.UTF8.GetString(bts);
+                    var envelop = JsonConvert.DeserializeObject<UdpMessageEnvelop>(json);
+                    var content = DeserializeContent(envelop);
+                    await NotifySubscribers(content);
+                }
+            }
+        }
+
+
+        private async Task NotifySubscribers(object content)
+        {
+
+            List<object> handlers;
+            var messageType = content.GetType();
+            if (!_subscrivers.TryGetValue(messageType, out handlers))
+                return;
+            foreach (var handler in handlers)
+            {
+                var h = handler
+                    .GetType()
+                    .GetRuntimeMethods()
+                    .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
+                await (Task)h.Invoke(handler, new[] { content });
+            }
         }
 
         private void ConnectionTerminatedCallback(HeliosConnectionException reason, IConnection closedchannel)
         {
-             
+
         }
 
         private void ConnectionEstablishedCallback(INode remoteaddress, IConnection responsechannel)
         {
-            
+
         }
 
-        private async void ReceivedDataCallback(NetworkData incomingdata, IConnection responsechannel)
+        private void ReceivedDataCallback(NetworkData incomingdata, IConnection responsechannel)
         {
-            var json = Encoding.UTF8.GetString(incomingdata.Buffer);
-            var envelop = JsonConvert.DeserializeObject<UdpMessageEnvelop>(json);
-            var content = DeserializeContent(envelop);
-            await NotifySubscribers(content);
-        } 
-
-        private async Task NotifySubscribers(object content)
-        {
-            await Task.Run(async () =>
-            {
-                List<object> handlers;
-                var messageType = content.GetType();
-                if (!_subscrivers.TryGetValue(messageType, out handlers))
-                    return;
-                foreach (var handler in handlers)
-                {
-                    var h = handler
-                        .GetType()
-                        .GetRuntimeMethods()
-                        .Single(p => p.Name == "Consume" && p.GetParameters().Single().ParameterType == messageType);
-                    await (Task) h.Invoke(handler, new[] {content});
-                }
-            });
+            if (incomingdata.Buffer != null)
+                ReceivedEnvelops.Enqueue(incomingdata.Buffer);
         }
+
 
 
         private object DeserializeContent(UdpMessageEnvelop envelop)
@@ -110,10 +139,10 @@ namespace NukedBit.PubSub.Udp
             if (!_connection.IsOpen())
                 await _connection.OpenAsync();
             var envelop = new UdpMessageEnvelop();
-            envelop.Headers.Add("X-Type",typeof(T).AssemblyQualifiedName);
-            envelop.Content = JsonConvert.SerializeObject(message,Formatting.None);
+            envelop.Headers.Add("X-Type", typeof(T).AssemblyQualifiedName);
+            envelop.Content = JsonConvert.SerializeObject(message, Formatting.None);
             var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelop, Formatting.None));
-            _connection.Send(bytes,0, bytes.Length, _remoteEnpoint);
+            _connection.Send(bytes, 0, bytes.Length, _remoteEnpoint);
         }
 
         public void Subscribe<T>(IHandleMessage<T> handleMessage) where T : class
