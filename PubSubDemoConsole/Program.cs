@@ -30,7 +30,7 @@ namespace PubSubDemoConsole
 
         public Task Consume(MyMessage message)
         {
-            //Console.WriteLine("Messsaggio: {0}", message.Message);
+          //   Console.WriteLine("Messsaggio: {0}", message.Message);
             if (message.Message ==(Program.MessageCount-1).ToString())
                 Console.WriteLine("Finito {0}", Program.MessageCount);
             return Task.FromResult(0);

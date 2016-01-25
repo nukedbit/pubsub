@@ -32,9 +32,9 @@ using Newtonsoft.Json;
 namespace NukedBit.PubSub.Udp
 {
 
-    public class UdpMessageEnvelop
+    public struct UdpMessageEnvelop
     {
-        public IDictionary<string, string> Headers { get; } = new Dictionary<string, string>();
+        public string ContentType { get; set; }
 
         public string Content { get; set; }
     }
@@ -126,11 +126,9 @@ namespace NukedBit.PubSub.Udp
                 ReceivedEnvelops.Enqueue(incomingdata.Buffer);
         }
 
-
-
         private object DeserializeContent(UdpMessageEnvelop envelop)
         {
-            var contentType = Type.GetType(envelop.Headers["X-Type"]);
+            var contentType = Type.GetType(envelop.ContentType);
             return JsonConvert.DeserializeObject(envelop.Content, contentType);
         }
 
@@ -138,9 +136,11 @@ namespace NukedBit.PubSub.Udp
         {
             if (!_connection.IsOpen())
                 await _connection.OpenAsync();
-            var envelop = new UdpMessageEnvelop();
-            envelop.Headers.Add("X-Type", typeof(T).AssemblyQualifiedName);
-            envelop.Content = JsonConvert.SerializeObject(message, Formatting.None);
+            var envelop = new UdpMessageEnvelop
+            {
+                ContentType = typeof (T).AssemblyQualifiedName,
+                Content = JsonConvert.SerializeObject(message, Formatting.None)
+            };
             var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelop, Formatting.None));
             _connection.Send(bytes, 0, bytes.Length, _remoteEnpoint);
         }
