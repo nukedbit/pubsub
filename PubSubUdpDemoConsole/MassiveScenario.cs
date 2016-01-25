@@ -20,12 +20,12 @@ namespace PubSubDemoConsole
 
         public class Consumer : IHandleMessage<MyMessage>
         {
-            private readonly UdpHub _udpHub;
+            private readonly UdpSubscriber _subscriber;
 
             public Consumer()
             {
-                _udpHub = new UdpHub(Node.Loopback(2555), Node.Loopback(2556));
-                _udpHub.Subscribe(this);
+                _subscriber = new UdpSubscriber(Node.Loopback(2556));
+                _subscriber.Subscribe(this);
             }
 
             public Task Consume(MyMessage message)
@@ -46,7 +46,7 @@ namespace PubSubDemoConsole
 
         private async Task MassiveSend()
         {
-            var udpHub = new UdpHub(Node.Loopback(2556), Node.Loopback(2555));
+            var udpHub = new UdpPublisher(Node.Loopback(2556), Node.Loopback(2555));
             Console.WriteLine("Publishing {0}", MessageCount);
             Stopwatch sw = Stopwatch.StartNew();
             for (var i = 0; i < MessageCount; i++)

@@ -17,8 +17,8 @@ namespace PubSubDemoConsole
 
         public class Client : IHandleMessage<Pong>, IHandleMessage<ConnectionEstablished>
         {
-            private readonly IHub _hub;
-            public Client(IHub hub)
+            private readonly IPublisher _hub;
+            public Client(IPublisher hub)
             {
                 _hub = hub;
                 _hub.Subscribe<Pong>(this);
@@ -60,11 +60,11 @@ namespace PubSubDemoConsole
 
         public async Task Run()
         {
-            var clientHub = new UdpHub(Node.Loopback(2556), Node.Loopback(2555));
+            var clientHub = new UdpPublisher(Node.Loopback(2556), Node.Loopback(2555));
 
             _client = new Client(clientHub);
 
-            var serverHub = new UdpHub(Node.Loopback(2555), Node.Loopback(2556));
+            var serverHub = new UdpPublisher(Node.Loopback(2555), Node.Loopback(2556));
             _server = new Server(serverHub);
 
             await Task.Delay(TimeSpan.FromSeconds(2));
