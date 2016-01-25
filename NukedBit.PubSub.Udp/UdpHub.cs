@@ -25,30 +25,18 @@ using System.Threading.Tasks;
 using Helios.Exceptions;
 using Helios.Net;
 using Helios.Net.Bootstrap;
-using Helios.Net.Connections;
 using Helios.Topology;
 using Newtonsoft.Json;
 
 namespace NukedBit.PubSub.Udp
 {
-
-    public struct UdpMessageEnvelop
-    {
-        public string ContentType { get; set; }
-
-        public string Content { get; set; }
-    }
-
     public class UdpHub : IHub
     {
         private readonly IConnection _connection;
         private readonly INode _remoteEnpoint;
 
         private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
-
-
-        private readonly ConcurrentQueue<byte[]> ReceivedEnvelops = new ConcurrentQueue<byte[]>();
-
+        private readonly ConcurrentQueue<byte[]> _receivedEnvelops = new ConcurrentQueue<byte[]>();
 
         public UdpHub(INode remoteEnpoint, INode localEndPoint)
         {
@@ -80,9 +68,9 @@ namespace NukedBit.PubSub.Udp
         {
             while (true)
             {
-                if (ReceivedEnvelops.IsEmpty) await Task.Delay(1);
+                if (_receivedEnvelops.IsEmpty) await Task.Delay(1);
                 byte[] bts;
-                if (ReceivedEnvelops.TryDequeue(out bts))
+                if (_receivedEnvelops.TryDequeue(out bts))
                 {
                     var json = Encoding.UTF8.GetString(bts);
                     var envelop = JsonConvert.DeserializeObject<UdpMessageEnvelop>(json);
@@ -110,20 +98,52 @@ namespace NukedBit.PubSub.Udp
             }
         }
 
-        private void ConnectionTerminatedCallback(HeliosConnectionException reason, IConnection closedchannel)
+        private async void ConnectionTerminatedCallback(HeliosConnectionException reason, IConnection closedchannel)
         {
-
+            await SendConnectionTerminated(reason, closedchannel);
         }
 
-        private void ConnectionEstablishedCallback(INode remoteaddress, IConnection responsechannel)
+        private async Task SendConnectionTerminated(HeliosConnectionException reason, IConnection closedchannel)
         {
+            try
+            {
+                var msg = new ConnectionTerminated()
+                {
+                    Host = closedchannel.RemoteHost.ToUri(),
+                    Exception = reason
+                };
 
+                await Publish<ConnectionTerminated>(msg);
+            }
+            catch
+            {
+            }
         }
+
+        private async void ConnectionEstablishedCallback(INode remoteaddress, IConnection responsechannel)
+        {
+            await SendConnectionEstablished(remoteaddress);
+        }
+
+        private async Task SendConnectionEstablished(INode remoteaddress)
+        {
+            try
+            {
+                var msg = new ConnectionEstablished()
+                {
+                    Host = remoteaddress.ToUri(),
+                };
+
+                await Publish<ConnectionEstablished>(msg);
+            }
+            catch { }
+        }
+
 
         private void ReceivedDataCallback(NetworkData incomingdata, IConnection responsechannel)
         {
             if (incomingdata.Buffer != null)
-                ReceivedEnvelops.Enqueue(incomingdata.Buffer);
+                _receivedEnvelops.Enqueue(incomingdata.Buffer);
         }
 
         private object DeserializeContent(UdpMessageEnvelop envelop)
@@ -138,7 +158,7 @@ namespace NukedBit.PubSub.Udp
                 await _connection.OpenAsync();
             var envelop = new UdpMessageEnvelop
             {
-                ContentType = typeof (T).AssemblyQualifiedName,
+                ContentType = typeof(T).AssemblyQualifiedName,
                 Content = JsonConvert.SerializeObject(message, Formatting.None)
             };
             var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelop, Formatting.None));

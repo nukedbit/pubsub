@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Net.Sockets;
 using System.Threading.Tasks;
-using Helios.Net.Connections;
 using Helios.Topology;
 using NukedBit.PubSub;
 using NukedBit.PubSub.Udp;
@@ -18,9 +16,7 @@ namespace PubSubDemoConsole
 
     public class Consumer : IHandleMessage<MyMessage>
     {
-        private Socket _socket;
-        private UdpConnection _connection;
-        private UdpHub _udpHub;
+        private readonly UdpHub _udpHub;
 
         public Consumer()
         {
@@ -32,7 +28,7 @@ namespace PubSubDemoConsole
         {
           //   Console.WriteLine("Messsaggio: {0}", message.Message);
             if (message.Message ==(Program.MessageCount-1).ToString())
-                Console.WriteLine("Finito {0}", Program.MessageCount);
+                Console.WriteLine("Received {0} Messages", Program.MessageCount);
             return Task.FromResult(0);
         }
     }
@@ -58,6 +54,7 @@ namespace PubSubDemoConsole
         private async Task Sender()
         {         
             var udpHub = new UdpHub(Node.Loopback(2556), Node.Loopback(2555));
+            Console.WriteLine("Publishing {0}", MessageCount);
             Stopwatch sw = Stopwatch.StartNew();
             for (var i = 0; i < MessageCount; i++)
                  await udpHub.Publish(new MyMessage {Message = i.ToString()});
