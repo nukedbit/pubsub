@@ -51,7 +51,7 @@
   <ItemGroup>
     <Compile Include="ConnectionEstablished.cs" />
     <Compile Include="ConnectionTerminated.cs" />
-    <Compile Include="UdpPublisher.cs" />
+    <Compile Include="UdpHub.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UdpMessageEnvelop.cs" />
   </ItemGroup>

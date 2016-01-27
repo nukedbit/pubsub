@@ -17,7 +17,14 @@ namespace PubSubDemoConsole
             else if (args[0] == "pingpong")
             {
                 Console.Title = "Udp Console - PingPong";
-                new PingPongScenario().Run();
+                try
+                {
+                    new PingPongScenario().Run();
+                }
+                catch (Exception ex)
+                {
+                    
+                }
             }
             else if (args[0] == "massive")
             {
