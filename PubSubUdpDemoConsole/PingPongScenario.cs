@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Common.Logging;
+using Common.Logging.Simple;
 using Helios.Reactor.Bootstrap;
 using Helios.Topology;
 using NukedBit.PubSub;
@@ -69,10 +71,12 @@ namespace PubSubDemoConsole
 
         public async Task Run()
         {
-            var clientHub = UdpHub.CreateClientHub(Node.Loopback(2557), Node.Loopback(2556));
+            var clientLogger = new ConsoleOutLogger("ClientLog", LogLevel.All, true, true, true, "dd/MM/yyyy", true);
+            var serverLogger = new ConsoleOutLogger("ServerLog", LogLevel.All, true, true, true, "dd/MM/yyyy", true);
+            var clientHub = UdpHub.CreateClientHub(Node.Loopback(2557), Node.Loopback(2556), clientLogger);
             _client = new Client(clientHub);
 
-            _server = new Server(UdpHub.CreateServerHub(Node.Loopback(2556), Node.Loopback(2557)));
+            _server = new Server(UdpHub.CreateServerHub(Node.Loopback(2556), Node.Loopback(2557), serverLogger));
             Console.WriteLine("Waiting..");
             await Task.Delay(TimeSpan.FromSeconds(2));
             Console.WriteLine("Publish");

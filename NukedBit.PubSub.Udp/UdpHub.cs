@@ -23,10 +23,10 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Common.Logging;
 using Helios.Exceptions;
 using Helios.Net;
 using Helios.Net.Bootstrap;
-using Helios.Reactor;
 using Helios.Reactor.Bootstrap;
 using Helios.Topology;
 using Newtonsoft.Json;
@@ -37,6 +37,7 @@ namespace NukedBit.PubSub.Udp
     {
         private readonly IConnection _connection;
         private readonly INode _remoteEnpoint;
+        private readonly ILog _log;
 
         private readonly ConcurrentDictionary<Type, List<object>> _subscrivers = new ConcurrentDictionary<Type, List<object>>();
         private readonly ConcurrentQueue<byte[]> _receivedEnvelops = new ConcurrentQueue<byte[]>();
@@ -44,34 +45,36 @@ namespace NukedBit.PubSub.Udp
         private Task _listener;
         private CancellationTokenSource _cancellationTokenSource;
 
-        public static UdpHub CreateClientHub(INode remoteNode, INode localEndPoint)
+        public static UdpHub CreateClientHub(INode remoteNode, INode localEndPoint, ILog log)
         {
-            return new UdpHub(new ClientBootstrap(), remoteNode, localEndPoint);
+            return new UdpHub(new ClientBootstrap(), remoteNode, localEndPoint,log);
         }
-        public static UdpHub CreateServerHub(INode remoteNode, INode localEndPoint)
+        public static UdpHub CreateServerHub(INode remoteNode, INode localEndPoint, ILog log)
         {
-            return new UdpHub(new ServerBootstrap(), remoteNode, localEndPoint);
+            return new UdpHub(new ServerBootstrap(), remoteNode, localEndPoint, log);
         }
 
-        private UdpHub(ClientBootstrap clientBootstrap, INode remoteNode, INode localEndPoint)
+        private UdpHub(ClientBootstrap clientBootstrap, INode remoteNode, INode localEndPoint, ILog log)
         {
             _connection = clientBootstrap
                 .SetTransport(TransportType.Udp)
                 .RemoteAddress(remoteNode)
-                .WorkerThreads(2)
+                .WorkerThreads(1)
                 .OnConnect(OnConnectionEstablished)
                 .OnReceive(OnReceivedData)
                 .OnDisconnect(OnConnectionTerminated)
                 .Build().NewConnection(localEndPoint, remoteNode);
             _connection.Open();
             _remoteEnpoint = remoteNode;
+            _log = log;
             StartListener();
         }
 
-        private UdpHub(ServerBootstrap clientBootstrap, INode remoteNode, INode localEndPoint)
+        private UdpHub(ServerBootstrap serverBootstrap, INode remoteNode, INode localEndPoint, ILog log)
         {
 
-            _connection = clientBootstrap
+            _connection = serverBootstrap
+                .WorkerThreads(1)
                 .SetTransport(TransportType.Udp)
                 .Build().NewReactor(localEndPoint).ConnectionAdapter;
             _connection.OnError += _connection_OnError;
@@ -80,12 +83,14 @@ namespace NukedBit.PubSub.Udp
             _connection.Receive += OnReceivedData;
             _connection.Open();
             _remoteEnpoint = remoteNode;
+            _log = log;
             StartListener();
         }
 
         private void _connection_OnError(Exception ex, IConnection connection)
         {
-
+            if(_log.IsErrorEnabled)
+                _log.Error($"UDP Error: {ex}");
         }
 
         private void StartListener()
@@ -123,8 +128,8 @@ namespace NukedBit.PubSub.Udp
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                //TODO: proper log
+                if (_log.IsErrorEnabled)
+                    _log.Error($"UDP Error: {ex}");
             }
         }
 
@@ -150,8 +155,8 @@ namespace NukedBit.PubSub.Udp
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex);
-                    // TODO: log
+                    if (_log.IsErrorEnabled)
+                        _log.Error($"UDP Error: {ex}");
                 }
             });
         }
@@ -170,19 +175,21 @@ namespace NukedBit.PubSub.Udp
                     Host = closedchannel?.RemoteHost?.ToUri(),
                     Exception = reason
                 };
-                Console.WriteLine("ConnectionTerminated");
+                if (_log.IsInfoEnabled)
+                    _log.InfoFormat($"ConnectionTerminated {msg.Host}");
                 await Publish<ConnectionTerminated>(msg);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                //TODO: proper log
+                if (_log.IsErrorEnabled)
+                    _log.Error($"UDP Error: {ex}");
             }
         }
 
         private async void OnConnectionEstablished(INode remoteaddress, IConnection responsechannel)
         {
-            Console.WriteLine("OnConnectionEstablished {0}", remoteaddress.ToString());
+            if (_log.IsInfoEnabled)
+                _log.InfoFormat("OnConnectionEstablished {0}", remoteaddress.ToString());
             await SendConnectionEstablished(remoteaddress);
         }
 
@@ -199,8 +206,8 @@ namespace NukedBit.PubSub.Udp
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
-                //TODO: proper log
+                if (_log.IsErrorEnabled)
+                    _log.Error($"UDP Error: {ex}");
             }
         }
 
@@ -226,10 +233,13 @@ namespace NukedBit.PubSub.Udp
                     ContentType = typeof(T).AssemblyQualifiedName,
                     Content = JsonConvert.SerializeObject(message, Formatting.None)
                 };
-                var bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelop, Formatting.None));
+                var json = JsonConvert.SerializeObject(envelop, Formatting.None);
+                var bytes = Encoding.UTF8.GetBytes(json);
                 if (!_connection.IsOpen())
                     _connection.Open();
                 _connection.Send(bytes, 0, bytes.Length, _remoteEnpoint);
+                if (_log.IsInfoEnabled)
+                    _log.InfoFormat("Message published: {0}", json);
             });
         }
 
