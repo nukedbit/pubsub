@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+	<metadata>
+		<id>NukedBit.PubSub.Udp</id>
+		<version>$version$-pre</version>
+		<title>NukedBit PubSub Udp</title>
+		<authors>nukedbit</authors>
+		<owners>nukedbit</owners>
+		<licenseUrl>http://opensource.org/licenses/Apache-2.0</licenseUrl>
+		<projectUrl>https://github.com/nukedbit/pubsub</projectUrl>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>
+			A simple framework publish subscribe framework
+		</description>
+		<tags>publish subscribe udp</tags>
+		<iconUrl>http://i.imgur.com/UHTvohwl.jpg</iconUrl> 
+		<dependencies>
+			<group targetFramework ="net45">
+				<dependency id="Helios" version="1.4.2" />
+				<dependency id="Common.Logging" version="3.3.1" />
+				<dependency id="Common.Logging.Core" version="3.3.1" />
+				<dependency id="Newtonsoft.Json" version="8.0.2" />
+				<dependency id="NukedBit.PubSub" version="$version$" />
+			</group>
+		</dependencies>		
+	</metadata>
+	<files>		
+		<!-- pcl -->
+		<file src="bin\Release\NukedBit.PubSub.Udp.*" target="lib\net45" />		
+	</files>
+</package>
+
+
+
+
+
